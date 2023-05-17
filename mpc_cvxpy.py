@@ -54,7 +54,7 @@ def MPC_solver(x_init):
     for k in range(N):
         objective += quad_form(x[:,k] - xr, Q) + quad_form(u[:,k], R)
         constraints += [x[:,k+1] == (Ad@x[:,k] + Bd@u[:,k]) * dt + x[:,k]]
-        # constraints += [xmin <= x[:,k], x[:,k] <= xmax]
+        constraints += [xmin <= x[:,k], x[:,k] <= xmax]
         # constraints += [(x[:,k][0]-1.5)**2 + (x[:,k][1]-1.5)**2 >= 1]
         constraints += [umin <= u[:,k], u[:,k] <= umax]
     objective += quad_form(x[:,N] - xr, QN) * 100

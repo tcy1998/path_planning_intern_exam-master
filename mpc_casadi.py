@@ -1,6 +1,6 @@
 from casadi import *
 
-T = 10. # Time horizon
+T = 10 # Time horizon
 N = 50 # number of control intervals
 
 # Declare model variables
@@ -17,7 +17,7 @@ u = vertcat(u1, u2)
 # xdot = vertcat((1-x2**2)*x1 - x2 + u, x1)
 xdot = vertcat(x3, x4, u1, u2)
 
-x1g = 9.0
+x1g = 3.0
 x2g = 3.0
 # Objective term
 L = (x1-x1g)**2 + (x2-x2g)**2 + u1**2 + u2**2
@@ -49,51 +49,106 @@ else:
 # Fk = F(x0=[0.2,0.3,0.0,0.0],p=[0.4, 0.4])
 # print(Fk['xf'])
 # print(Fk['qf'])
+# # Start with an empty NLP
+# w=[]
+# w0 = []
+# lbw = []
+# ubw = []
+# J = 0
+# g=[]
+# lbg = []
+# ubg = []
 
-# Start with an empty NLP
-w=[]
-w0 = []
-lbw = []
-ubw = []
-J = 0
-g=[]
-lbg = []
-ubg = []
 
-# Formulate the NLP
-Xk = MX([0, 0, 0, 0])
-for k in range(N):
-    # New NLP variable for the control
-    Uk = MX.sym('U_' + str(k))
-    w += [Uk]
-    lbw += [-1]
-    ubw += [1]
-    w0 += [0]
 
-    # Integrate till the end of the interval
-    Fk = F(x0=Xk, p=Uk)
-    Xk = Fk['xf']
-    J=J+Fk['qf']
+def Optim_solver(x0):
+    # Start with an empty NLP
+    w=[]
+    w0 = []
+    lbw = []
+    ubw = []
+    J = 0
+    g=[]
+    lbg = []
+    ubg = []
 
-    # Add inequality constraint
-    g += [Xk[0]]
-    lbg += [-.25]
-    ubg += [inf]
+    
 
-# Create an NLP solver
-prob = {'f': J, 'x': vertcat(*w), 'g': vertcat(*g)}
-solver = nlpsol('solver', 'ipopt', prob)
+    # Xk = MX(x0[0])              # MX([0, 0, 0, 0])
 
-# Solve the NLP
-sol = solver(x0=w0, lbx=lbw, ubx=ubw, lbg=lbg, ubg=ubg)
-w_opt = sol['x']
+    Xk = MX.sym('X_' + str(0), 4)
+    w += [Xk]
+    lbw += x0
+    ubw += x0
+    w0 += x0
+
+    for k in range(T):
+        Uk = MX.sym('U_' + str(k), 2)
+        w += [Uk]
+        lbw += [-10, -10]                
+        ubw += [10, 10]                     
+        w0 += [0, 0]
+
+        # Integrate till the end of the interval
+        Fk = F(x0=Xk, p=Uk)
+        Xk_end = Fk['xf']
+        J = J+Fk['qf']
+        
+        Xk = MX.sym('X_' + str(k+1), 4)
+        w += [Xk]
+        w0 += [0, 0, 0, 0]
+        lbw += [-inf, -inf, -inf, -inf]
+        ubw += [inf, inf, inf, inf]
+
+        # Add inequality constraint
+        g += [Xk_end - Xk]
+        # print(Xk[0])
+        lbg += [0, 0, 0, 0]
+        ubg += [0, 0, 0, 0]
+    prob = {'f': J, 'x': vertcat(*w), 'g': vertcat(*g)}
+    solver = nlpsol('solver', 'ipopt', prob)
+
+    # Solve the NLP
+    sol = solver(x0=w0, lbx=lbw, ubx=ubw, lbg=lbg, ubg=ubg)
+    w_opt = sol['x']
+    return w_opt
+
+# # Formulate the NLP
+# Xk = MX([0, 0, 0, 0])
+# for k in range(N):
+#     # New NLP variable for the control
+#     Uk = MX.sym('U_' + str(k))
+#     w += [Uk]
+#     lbw += [-1]
+#     ubw += [1]
+#     w0 += [0]
+
+#     # Integrate till the end of the interval
+#     Fk = F(x0=Xk, p=Uk)
+#     Xk = Fk['xf']
+#     J=J+Fk['qf']
+
+#     # Add inequality constraint
+#     g += [Xk[0]]
+#     lbg += [-.25]
+#     ubg += [inf]
+
+# # Create an NLP solver
+# prob = {'f': J, 'x': vertcat(*w), 'g': vertcat(*g)}
+# solver = nlpsol('solver', 'ipopt', prob)
+
+# # Solve the NLP
+# sol = solver(x0=w0, lbx=lbw, ubx=ubw, lbg=lbg, ubg=ubg)
+# w_opt = sol['x']
 
 # Plot the solution
-u_opt = w_opt
-x_opt = [[0, 2, 0, 0]]
+                              # the control input is the optimization variable
+x_opt = [[0, 2, 0, 0]]                      # We must start with a feasible state
 for k in range(N):                          # Loop over control intervals
-    Fk = F(x0=x_opt[-1], p=u_opt[k])
-    x_opt += [Fk['xf'].full()]
+    u_opt = Optim_solver(x_opt[-1])             # Solve the optimization problem
+    Fk = F(x0=x_opt[-1], p=u_opt[4:6])        # Get the optimal solution
+    print(u_opt[4:6])
+    x_opt += [Fk['xf'].full()]              # update the state trajectory
 x1_opt = vcat([r[0] for r in x_opt])        # state x1
 x2_opt = vcat([r[1] for r in x_opt])        # state x2
 
@@ -104,7 +159,7 @@ plt.figure(1)
 plt.clf()
 plt.plot(tgrid, x1_opt, '--')
 plt.plot(tgrid, x2_opt, '-')
-plt.step(tgrid, vertcat(DM.nan(1), u_opt), '-.')
+# plt.step(tgrid, vertcat(DM.nan(1), u_opt), '-.')
 plt.xlabel('t')
 plt.legend(['x1','x2','u'])
 plt.grid()
