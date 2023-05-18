@@ -45,20 +45,6 @@ else:
        Q = Q + DT/6*(k1_q + 2*k2_q + 2*k3_q + k4_q)
    F = Function('F', [X0, U], [X, Q],['x0','p'],['xf','qf'])
 
-# Evaluate at a test point
-# Fk = F(x0=[0.2,0.3,0.0,0.0],p=[0.4, 0.4])
-# print(Fk['xf'])
-# print(Fk['qf'])
-# # Start with an empty NLP
-# w=[]
-# w0 = []
-# lbw = []
-# ubw = []
-# J = 0
-# g=[]
-# lbg = []
-# ubg = []
-
 
 
 def Optim_solver(x0):
@@ -72,15 +58,7 @@ def Optim_solver(x0):
     lbg = []
     ubg = []
 
-    
-
-    # Xk = MX(x0[0])              # MX([0, 0, 0, 0])
-
-    Xk = MX.sym('X_' + str(0), 4)
-    w += [Xk]
-    lbw += x0
-    ubw += x0
-    w0 += x0
+    Xk = MX(x0[0])              # MX([0, 0, 0, 0])
 
     for k in range(T):
         Uk = MX.sym('U_' + str(k), 2)
@@ -113,41 +91,12 @@ def Optim_solver(x0):
     w_opt = sol['x']
     return w_opt
 
-# # Formulate the NLP
-# Xk = MX([0, 0, 0, 0])
-# for k in range(N):
-#     # New NLP variable for the control
-#     Uk = MX.sym('U_' + str(k))
-#     w += [Uk]
-#     lbw += [-1]
-#     ubw += [1]
-#     w0 += [0]
-
-#     # Integrate till the end of the interval
-#     Fk = F(x0=Xk, p=Uk)
-#     Xk = Fk['xf']
-#     J=J+Fk['qf']
-
-#     # Add inequality constraint
-#     g += [Xk[0]]
-#     lbg += [-.25]
-#     ubg += [inf]
-
-# # Create an NLP solver
-# prob = {'f': J, 'x': vertcat(*w), 'g': vertcat(*g)}
-# solver = nlpsol('solver', 'ipopt', prob)
-
-# # Solve the NLP
-# sol = solver(x0=w0, lbx=lbw, ubx=ubw, lbg=lbg, ubg=ubg)
-# w_opt = sol['x']
-
 # Plot the solution
                               # the control input is the optimization variable
 x_opt = [[0, 2, 0, 0]]                      # We must start with a feasible state
 for k in range(N):                          # Loop over control intervals
     u_opt = Optim_solver(x_opt[-1])             # Solve the optimization problem
-    Fk = F(x0=x_opt[-1], p=u_opt[4:6])        # Get the optimal solution
-    print(u_opt[4:6])
+    Fk = F(x0=x_opt[-1], p=u_opt[:1])        # Get the optimal solution
     x_opt += [Fk['xf'].full()]              # update the state trajectory
 x1_opt = vcat([r[0] for r in x_opt])        # state x1
 x2_opt = vcat([r[1] for r in x_opt])        # state x2
